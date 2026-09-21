@@ -340,6 +340,29 @@ Profiles are `readOnly: true` unless you say otherwise. Commands are classified 
 | A command fails but `exit code` is 0 | RouterOS often reports errors in its output rather than through the exit status, so read the text, not just the status. |
 | Output is full of escape codes | Add `+ct` to the username (`"admin+ct"`). |
 
+## RouterOS reference
+
+Four documents ship with the package and back `mikrotik_search_docs`:
+
+| Document | Covers |
+| -------- | ------ |
+| `console.md` | Output control (`detail`, `brief`, `count-only`, `without-paging`), selecting items with `find`, command chaining, reading single values |
+| `reading-state.md` | Read commands by area — system, interfaces, addresses, routes, firewall, DHCP, wireless, logs, health, export |
+| `v6-vs-v7.md` | What changed: OSPF and BGP redesign, routing filter rule syntax, moved menus, the three wireless menus, containers |
+| `making-changes.md` | Write patterns, predicates over numbers, lockout risks, rule ordering, reversibility |
+
+Content is written for this project rather than copied from MikroTik, and each claim was checked against the official documentation. Where something is widely used but could not be confirmed — `print terse` and `print as-value` — it is labelled as unverified rather than presented as fact. Verify those against your hardware.
+
+### The trap worth knowing
+
+RouterOS item numbers are assigned per session and reassigned on the next `print`. Since every `mikrotik_exec` call is its own SSH session, **a number from one call is meaningless in the next** — and acting on a stale number does not error, it acts on whatever holds that number now. Always select by predicate:
+
+```
+/ip firewall filter remove [find where comment="mcp-temp"]
+```
+
+This is stated in the `mikrotik_exec` tool description as well as the reference, because it is the most expensive thing an agent can get wrong here.
+
 ## Command line
 
 | Command | Purpose |
@@ -358,6 +381,18 @@ Search the configured routers. Returns connection details, which config file eac
 | Input | Type | Notes |
 | ----- | ---- | ----- |
 | `query` | string, optional | Case-insensitive substring over name, host, description and tags. |
+
+### `mikrotik_search_docs`
+
+Search bundled RouterOS reference material — command syntax, idioms, and v6/v7 differences. Offline and read-only; it touches no router and needs no config.
+
+| Input | Type | Notes |
+| ----- | ---- | ----- |
+| `query` | string | Keywords, e.g. `firewall filter print`, `bgp peer v7`. |
+| `version` | `6` \| `7`, optional | Limit to sections that apply to that major version. |
+| `limit` | number, optional | Sections to return. Default 3. |
+
+The reference lives in [`docs/`](docs/) as plain markdown and is re-read on every call, so it can be edited or extended without rebuilding. Ranking is BM25 over sections, with no dependencies and no index to keep in sync.
 
 ### `mikrotik_exec`
 
@@ -396,6 +431,9 @@ src/
     paths.ts           where config files are looked for; ~ and $VAR expansion
     load.ts            read, validate, merge, search
     report.ts          the --check-config report
+  docs/
+    corpus.ts          parse docs/*.md into searchable sections
+    search.ts          dependency-free BM25 ranking
   ssh/
     exec.ts            one connection, one command, then close
     knownHosts.ts      known_hosts parsing and host key verification
@@ -405,6 +443,8 @@ src/
   tools/
     listProfiles.ts    mikrotik_list_profiles
     exec.ts            mikrotik_exec
+    searchDocs.ts      mikrotik_search_docs
+docs/                  the RouterOS reference, shipped with the package
 scripts/
   generate-schema.ts   zod schema -> JSON Schema
 test/                  node:test suites; helpers.ts builds a sandboxed config + env
@@ -429,7 +469,7 @@ npm test && npm run build
 npm publish          # prepublishOnly rebuilds dist/
 ```
 
-Only `dist/`, `schema/`, `README.md` and `LICENSE` are published.
+Only `dist/`, `docs/`, `schema/`, `README.md` and `LICENSE` are published.
 
 ## License
 

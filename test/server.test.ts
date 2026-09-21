@@ -30,13 +30,21 @@ function configured() {
 }
 
 describe("tool surface", () => {
-  it("exposes the profile and exec tools", async () => {
+  it("exposes the profile, exec and docs tools", async () => {
     const client = await connect(sandbox().env);
     const { tools } = await client.listTools();
     assert.deepEqual(
       tools.map((t) => t.name).sort(),
-      ["mikrotik_exec", "mikrotik_list_profiles"],
+      ["mikrotik_exec", "mikrotik_list_profiles", "mikrotik_search_docs"],
     );
+  });
+
+  it("warns in the exec tool description that item numbers are unstable", async () => {
+    const client = await connect(sandbox().env);
+    const { tools } = await client.listTools();
+    const exec = tools.find((t) => t.name === "mikrotik_exec");
+    assert.match(exec?.description ?? "", /Item numbers .* NOT stable/);
+    assert.match(exec?.description ?? "", /\[find where/);
   });
 });
 

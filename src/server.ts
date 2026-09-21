@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { currentEnvironment, type LookupEnvironment } from "./config/paths.ts";
 import { registerExecTool } from "./tools/exec.ts";
 import { registerListProfilesTool } from "./tools/listProfiles.ts";
+import { registerSearchDocsTool } from "./tools/searchDocs.ts";
 
 export const SERVER_NAME = "mikrotik-mcp";
 export const SERVER_VERSION = "0.1.0";
@@ -21,12 +22,15 @@ export function createServer(e: LookupEnvironment = currentEnvironment()): McpSe
       instructions:
         "Runs RouterOS commands on MikroTik routers over SSH. Call mikrotik_list_profiles to see " +
         "which routers are configured, then mikrotik_exec to run a command on one. Each call is " +
-        "independent — a fresh SSH connection is opened and closed, so no shell state persists.",
+        "independent — a fresh SSH connection is opened and closed, so no shell state persists. " +
+        "mikrotik_search_docs holds RouterOS v6/v7 reference material; consult it before composing " +
+        "an unfamiliar command.",
     },
   );
 
   registerListProfilesTool(server, e);
   registerExecTool(server, e);
+  registerSearchDocsTool(server);
 
   return server;
 }

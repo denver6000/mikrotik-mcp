@@ -35,7 +35,12 @@ export function registerExecTool(
         "session, working directory or shell state carried between calls — send absolute command paths " +
         "such as '/system resource print'. Profiles are read-only by default, in which case commands " +
         "that would change the router are refused before connecting. Use mikrotik_list_profiles to find " +
-        "profile names.",
+        "profile names. " +
+        "Item numbers printed by RouterOS are NOT stable: they are reassigned per session and again on " +
+        "the next print, and every call here is a new session. Never pass a number seen in an earlier " +
+        "call to a later one — it will act on whatever holds that number now. Select by predicate " +
+        "instead, e.g. /ip firewall filter remove [find where comment=\"x\"]. " +
+        "See mikrotik_search_docs for more.",
       inputSchema: {
         profile: z.string().min(1).describe("Profile name from mikrotik_list_profiles."),
         command: z

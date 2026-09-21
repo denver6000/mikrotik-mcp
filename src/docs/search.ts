@@ -46,11 +46,29 @@ function scoredTokens(section: DocSection): string[] {
   const heading = tokenize(section.heading);
   const tokens = tokenize(section.body);
   for (let i = 0; i < HEADING_WEIGHT; i++) tokens.push(...heading);
+  // The "(v7)" marker is stripped from the heading when parsed, so index the
+  // versions explicitly — otherwise a query mentioning "v7" cannot prefer the
+  // v7 section over the v6 one that shares its heading.
+  for (const version of section.versions) tokens.push(`v${version}`);
   return tokens;
 }
 
 function metadataTerms(section: DocSection): Set<string> {
   return new Set([...tokenize(section.docTitle), ...tokenize(section.tags.join(" "))]);
+}
+
+/**
+ * A version named in the query — "bgp peer v7", "routeros 6 firewall".
+ *
+ * Someone who writes "v7" means it as a constraint, not as a search term, and
+ * term matching alone cannot express that: the v6 and v7 sections on a topic
+ * share a heading, and the v6 text often contains the very word being asked
+ * about ("peer") precisely because it is what changed.
+ */
+export function versionInQuery(query: string): RouterOsVersion | undefined {
+  const match = /\b(?:v|ros\s*v?|routeros\s*v?)([67])\b/i.exec(query);
+  const version = match ? Number(match[1]) : undefined;
+  return version === 6 || version === 7 ? version : undefined;
 }
 
 /**
@@ -65,9 +83,8 @@ export function searchDocs(
   query: string,
   options: { version?: RouterOsVersion; limit?: number } = {},
 ): SearchHit[] {
-  const candidates = options.version
-    ? sections.filter((s) => s.versions.includes(options.version as RouterOsVersion))
-    : sections;
+  const version = options.version ?? versionInQuery(query);
+  const candidates = version ? sections.filter((s) => s.versions.includes(version)) : sections;
   if (candidates.length === 0) return [];
 
   const docs = candidates.map(scoredTokens);

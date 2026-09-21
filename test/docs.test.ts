@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { loadCorpus, parseDocument } from "../src/docs/corpus.ts";
-import { searchDocs, tokenize } from "../src/docs/search.ts";
+import { searchDocs, tokenize, versionInQuery } from "../src/docs/search.ts";
 import { createServer } from "../src/server.ts";
 import { sandbox } from "./helpers.ts";
 
@@ -129,6 +129,32 @@ describe("search ranking", () => {
     const hit = top("bgp peer setup");
     assert.ok(hit);
     assert.equal(hit.heading, "BGP");
+  });
+
+  it("treats a version named in the query as a filter", () => {
+    // "bgp peer v7" must not surface the v6-only section, even though the v6
+    // text is the one containing the word "peer" — that is exactly what
+    // changed in v7, so term matching alone gets this backwards.
+    const v7 = searchDocs(corpus, "bgp peer v7", { limit: 5 });
+    assert.ok(v7.length > 0);
+    for (const hit of v7) {
+      assert.ok(hit.section.versions.includes(7), `${hit.section.heading} does not apply to v7`);
+    }
+    assert.ok(
+      v7.some((h) => h.section.body.includes("connection")),
+      "the v7 answer should mention the connection menu that replaced peer",
+    );
+
+    const v6 = searchDocs(corpus, "bgp peer v6", { limit: 5 });
+    for (const hit of v6) {
+      assert.ok(hit.section.versions.includes(6), `${hit.section.heading} does not apply to v6`);
+    }
+  });
+
+  it("ignores version-like numbers that are not a version", () => {
+    assert.equal(versionInQuery("7.13 wifi menu"), undefined);
+    assert.equal(versionInQuery("firewall print"), undefined);
+    assert.equal(versionInQuery("routeros 7 wifi"), 7);
   });
 
   it("respects the limit", () => {

@@ -37,7 +37,7 @@ export function registerSearchDocsTool(server: McpServer): void {
           .union([z.literal(6), z.literal(7)])
           .optional()
           .describe(
-            "Limit results to sections that apply to this RouterOS major version. Read it from /system resource print.",
+            "Limit results to sections that apply to this RouterOS major version. Read it from /system resource print. If omitted, a version named in the query itself (e.g. 'bgp peer v7') is used.",
           ),
         limit: z.number().int().min(1).max(10).optional().describe("Maximum sections to return. Default 3."),
       },

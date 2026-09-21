@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { createServer } from "../src/server.ts";
+import { readFileSync } from "node:fs";
+import { createServer, SERVER_VERSION } from "../src/server.ts";
 import type { LookupEnvironment } from "../src/config/paths.ts";
 import { sandbox } from "./helpers.ts";
 
@@ -145,5 +146,28 @@ describe("mikrotik_exec", () => {
     const text = textOf(result);
     assert.ok(!text.includes("read-only"), `expected a connection error, got: ${text}`);
     assert.match(text, /SSH connection|Timed out|Cannot connect/);
+  });
+});
+
+describe("release sanity", () => {
+  it("SERVER_VERSION matches package.json", () => {
+    const pkg = JSON.parse(
+      readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+    ) as { version: string; bin: Record<string, string>; files: string[] };
+    assert.equal(
+      SERVER_VERSION,
+      pkg.version,
+      "bump SERVER_VERSION in src/server.ts and version in package.json together",
+    );
+  });
+
+  it("publishes the files the server needs at runtime", () => {
+    const pkg = JSON.parse(
+      readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+    ) as { files: string[]; bin: Record<string, string> };
+    for (const needed of ["dist", "docs"]) {
+      assert.ok(pkg.files.includes(needed), `"${needed}" must be in package.json files`);
+    }
+    assert.ok(Object.values(pkg.bin).every((p) => p.startsWith("dist/")));
   });
 });

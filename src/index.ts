@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { describeConfig } from "./config/report.ts";
-import { createServer, SERVER_NAME, SERVER_VERSION } from "./server.ts";
+import { createServer, PACKAGE_NAME, SERVER_NAME, SERVER_VERSION } from "./server.ts";
 import { testConnection } from "./ssh/testConnection.ts";
 
 const HELP = `${SERVER_NAME} ${SERVER_VERSION}
@@ -18,7 +18,7 @@ Usage:
   ${SERVER_NAME} --help             Print this help
 
 Client config (Claude Code, Codex, opencode, ...):
-  { "command": "npx", "args": ["-y", "${SERVER_NAME}"] }
+  { "command": "npx", "args": ["-y", "${PACKAGE_NAME}"] }
 `;
 
 async function main(): Promise<void> {

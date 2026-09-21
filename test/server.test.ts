@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { readFileSync } from "node:fs";
-import { createServer, SERVER_VERSION } from "../src/server.ts";
+import { createServer, PACKAGE_NAME, SERVER_VERSION } from "../src/server.ts";
 import type { LookupEnvironment } from "../src/config/paths.ts";
 import { sandbox } from "./helpers.ts";
 
@@ -159,6 +159,13 @@ describe("release sanity", () => {
       pkg.version,
       "bump SERVER_VERSION in src/server.ts and version in package.json together",
     );
+  });
+
+  it("PACKAGE_NAME matches package.json, so --help prints an installable command", () => {
+    const pkg = JSON.parse(
+      readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+    ) as { name: string };
+    assert.equal(PACKAGE_NAME, pkg.name);
   });
 
   it("publishes the files the server needs at runtime", () => {

@@ -4,3 +4,6 @@ dist/
 .DS_Store
 .env
 .env.*
+
+# Third-party material kept locally for reference, not part of this project.
+reference/

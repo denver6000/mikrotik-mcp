@@ -1,5 +1,7 @@
 # mikrotik-mcp
 
+[![npm](https://img.shields.io/npm/v/@denver6000/mikrotik-mcp)](https://www.npmjs.com/package/@denver6000/mikrotik-mcp)
+
 A [Model Context Protocol](https://modelcontextprotocol.io) server that runs RouterOS commands on MikroTik routers over SSH.
 
 Node + TypeScript, no runtime toolchain of its own, and **stateless**: every tool call re-reads the config and opens and closes its own SSH connection. Nothing is cached, pooled or carried between calls.
@@ -13,17 +15,17 @@ It speaks JSON-RPC over stdio, so it drops into any MCP harness: Claude Code, Co
 ## Use it
 
 ```bash
-npx -y mikrotik-mcp
+npx -y @denver6000/mikrotik-mcp
 ```
 
 The published package is plain Node ESM with no runtime toolchain of its own — Node 18+ is enough.
 
 | Client | How to add it |
 | ------ | ------------- |
-| Claude Code | `claude mcp add mikrotik -- npx -y mikrotik-mcp` |
-| Codex | `[mcp_servers.mikrotik]` in `~/.codex/config.toml` with `command = "npx"`, `args = ["-y", "mikrotik-mcp"]` |
-| opencode | `"mikrotik": { "type": "local", "command": ["npx", "-y", "mikrotik-mcp"], "enabled": true }` under `"mcp"` in `opencode.json` |
-| Anything else | `"mikrotik": { "command": "npx", "args": ["-y", "mikrotik-mcp"] }` under `"mcpServers"` |
+| Claude Code | `claude mcp add mikrotik -- npx -y @denver6000/mikrotik-mcp` |
+| Codex | `[mcp_servers.mikrotik]` in `~/.codex/config.toml` with `command = "npx"`, `args = ["-y", "@denver6000/mikrotik-mcp"]` |
+| opencode | `"mikrotik": { "type": "local", "command": ["npx", "-y", "@denver6000/mikrotik-mcp"], "enabled": true }` under `"mcp"` in `opencode.json` |
+| Anything else | `"mikrotik": { "command": "npx", "args": ["-y", "@denver6000/mikrotik-mcp"] }` under `"mcpServers"` |
 
 If a profile uses password auth, the client also has to pass the variable holding it — see [Getting a secret to the server](#getting-a-secret-to-the-server).
 
@@ -85,7 +87,7 @@ ssh-keyscan -H 10.0.0.1 >> ~/.ssh/known_hosts
 ### 4. Check it
 
 ```bash
-npx -y mikrotik-mcp --check-config
+npx -y @denver6000/mikrotik-mcp --check-config
 ```
 
 ```
@@ -109,7 +111,7 @@ This exits non-zero if a file is unparseable or no profiles were found, so it wo
 `--check-config` never connects to anything. To test the whole path — TCP, host key, credentials, RouterOS — run:
 
 ```bash
-npx -y mikrotik-mcp --test core
+npx -y @denver6000/mikrotik-mcp --test core
 ```
 
 ```
@@ -245,14 +247,14 @@ Your MCP client launches this server as a **subprocess**, so a variable exported
 
 ```bash
 # Claude Code
-claude mcp add mikrotik --env MIKROTIK_LAB_PASSWORD=... -- npx -y mikrotik-mcp
+claude mcp add mikrotik --env MIKROTIK_LAB_PASSWORD=... -- npx -y @denver6000/mikrotik-mcp
 ```
 
 ```toml
 # Codex — ~/.codex/config.toml
 [mcp_servers.mikrotik]
 command = "npx"
-args = ["-y", "mikrotik-mcp"]
+args = ["-y", "@denver6000/mikrotik-mcp"]
 env = { MIKROTIK_LAB_PASSWORD = "..." }
 ```
 
@@ -262,7 +264,7 @@ env = { MIKROTIK_LAB_PASSWORD = "..." }
   "mcp": {
     "mikrotik": {
       "type": "local",
-      "command": ["npx", "-y", "mikrotik-mcp"],
+      "command": ["npx", "-y", "@denver6000/mikrotik-mcp"],
       "enabled": true,
       "environment": { "MIKROTIK_LAB_PASSWORD": "..." }
     }
@@ -276,7 +278,7 @@ env = { MIKROTIK_LAB_PASSWORD = "..." }
   "mcpServers": {
     "mikrotik": {
       "command": "npx",
-      "args": ["-y", "mikrotik-mcp"],
+      "args": ["-y", "@denver6000/mikrotik-mcp"],
       "env": { "MIKROTIK_LAB_PASSWORD": "..." }
     }
   }

@@ -1,5 +1,5 @@
 {
-  "name": "mikrotik-mcp",
+  "name": "@denver6000/mikrotik-mcp",
   "version": "0.1.0",
   "description": "A minimal Model Context Protocol (MCP) server that works with any MCP harness (Claude Code, Codex, opencode, ...).",
   "keywords": [

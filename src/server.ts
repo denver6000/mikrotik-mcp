@@ -4,7 +4,10 @@ import { registerExecTool } from "./tools/exec.ts";
 import { registerListProfilesTool } from "./tools/listProfiles.ts";
 import { registerSearchDocsTool } from "./tools/searchDocs.ts";
 
+/** The MCP server's own name, and the name of the installed command. */
 export const SERVER_NAME = "mikrotik-mcp";
+/** The npm package, which is scoped — the unscoped name belongs to someone else. */
+export const PACKAGE_NAME = "@denver6000/mikrotik-mcp";
 export const SERVER_VERSION = "0.1.0";
 
 /**

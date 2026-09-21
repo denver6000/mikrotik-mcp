@@ -1,0 +1,622 @@
+{
+  "$id": "https://raw.githubusercontent.com/denver6000/mikrotik-mcp/main/schema/mikrotik-mcp.schema.json",
+  "title": "mikrotik-mcp configuration",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "defaults": {
+      "description": "Applied to every profile in this file.",
+      "type": "object",
+      "properties": {
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "username": {
+          "description": "RouterOS user. Append '+ct' (e.g. 'admin+ct') to disable colour and paging in RouterOS output.",
+          "type": "string",
+          "minLength": 1
+        },
+        "auth": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "agent"
+                },
+                "socket": {
+                  "description": "Override the SSH agent socket. Defaults to $SSH_AUTH_SOCK, or the OpenSSH named pipe on Windows.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type"
+              ],
+              "description": "Authenticate with a key held by a running SSH agent."
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "key"
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Path to a private key. '~' and $VARS are expanded."
+                },
+                "passphraseEnv": {
+                  "description": "Environment variable holding the key passphrase, if encrypted.",
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "type",
+                "path"
+              ],
+              "description": "Authenticate with a private key file."
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "password"
+                },
+                "passwordEnv": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Environment variable holding the password. Never inline the password."
+                }
+              },
+              "required": [
+                "type",
+                "passwordEnv"
+              ],
+              "description": "Authenticate with a password read from the environment."
+            }
+          ]
+        },
+        "hostKey": {
+          "type": "object",
+          "properties": {
+            "policy": {
+              "description": "known-hosts: verify against known_hosts (default). pinned: verify against fingerprintSha256. insecure-ignore: accept any key.",
+              "type": "string",
+              "enum": [
+                "known-hosts",
+                "pinned",
+                "insecure-ignore"
+              ]
+            },
+            "knownHostsPath": {
+              "description": "known_hosts file to check. Defaults to ~/.ssh/known_hosts.",
+              "type": "string"
+            },
+            "fingerprintSha256": {
+              "description": "Expected host key fingerprint, e.g. 'SHA256:abc...'. Required by the 'pinned' policy.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "readOnly": {
+          "description": "Reject commands that are not recognised as read-only. Defaults to true. A guardrail against accidents, not a security boundary — use RouterOS group permissions for that.",
+          "type": "boolean"
+        },
+        "timeoutMs": {
+          "description": "Connect + command timeout in milliseconds. Defaults to 20000.",
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 600000
+        },
+        "algorithms": {
+          "description": "SSH algorithm overrides for routers that need legacy crypto.",
+          "type": "object",
+          "properties": {
+            "kex": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "append": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "prepend": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "remove": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "cipher": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "append": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "prepend": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "remove": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "serverHostKey": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "append": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "prepend": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "remove": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "hmac": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "append": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "prepend": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "remove": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "compress": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "append": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "prepend": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "remove": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "profiles": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9._-]+$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Hostname or IP address of the router."
+          },
+          "description": {
+            "type": "string"
+          },
+          "tags": {
+            "description": "Free-form labels, searchable by the list tool.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "username": {
+            "description": "RouterOS user. Append '+ct' (e.g. 'admin+ct') to disable colour and paging in RouterOS output.",
+            "type": "string",
+            "minLength": 1
+          },
+          "auth": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "agent"
+                  },
+                  "socket": {
+                    "description": "Override the SSH agent socket. Defaults to $SSH_AUTH_SOCK, or the OpenSSH named pipe on Windows.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "description": "Authenticate with a key held by a running SSH agent."
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "key"
+                  },
+                  "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Path to a private key. '~' and $VARS are expanded."
+                  },
+                  "passphraseEnv": {
+                    "description": "Environment variable holding the key passphrase, if encrypted.",
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "type",
+                  "path"
+                ],
+                "description": "Authenticate with a private key file."
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "password"
+                  },
+                  "passwordEnv": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Environment variable holding the password. Never inline the password."
+                  }
+                },
+                "required": [
+                  "type",
+                  "passwordEnv"
+                ],
+                "description": "Authenticate with a password read from the environment."
+              }
+            ]
+          },
+          "hostKey": {
+            "type": "object",
+            "properties": {
+              "policy": {
+                "description": "known-hosts: verify against known_hosts (default). pinned: verify against fingerprintSha256. insecure-ignore: accept any key.",
+                "type": "string",
+                "enum": [
+                  "known-hosts",
+                  "pinned",
+                  "insecure-ignore"
+                ]
+              },
+              "knownHostsPath": {
+                "description": "known_hosts file to check. Defaults to ~/.ssh/known_hosts.",
+                "type": "string"
+              },
+              "fingerprintSha256": {
+                "description": "Expected host key fingerprint, e.g. 'SHA256:abc...'. Required by the 'pinned' policy.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "readOnly": {
+            "description": "Reject commands that are not recognised as read-only. Defaults to true. A guardrail against accidents, not a security boundary — use RouterOS group permissions for that.",
+            "type": "boolean"
+          },
+          "timeoutMs": {
+            "description": "Connect + command timeout in milliseconds. Defaults to 20000.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 600000
+          },
+          "algorithms": {
+            "description": "SSH algorithm overrides for routers that need legacy crypto.",
+            "type": "object",
+            "properties": {
+              "kex": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "append": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "prepend": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "remove": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "cipher": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "append": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "prepend": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "remove": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "serverHostKey": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "append": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "prepend": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "remove": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "hmac": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "append": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "prepend": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "remove": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "compress": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "append": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "prepend": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "remove": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "host"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Router profiles, keyed by name."
+    }
+  },
+  "required": [
+    "profiles"
+  ],
+  "additionalProperties": false
+}

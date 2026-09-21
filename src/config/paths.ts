@@ -32,6 +32,23 @@ export function expandPath(input: string, e: LookupEnvironment = currentEnvironm
 }
 
 /**
+ * Resolve a path a config file referred to.
+ *
+ * After '~' and $VAR expansion, a still-relative path is resolved against the
+ * directory holding the config file — never the process working directory.
+ * That is what lets a config plus its key files be copied to another machine,
+ * or into a container, and keep working.
+ */
+export function resolveUserPath(
+  input: string,
+  configFile: string,
+  e: LookupEnvironment = currentEnvironment(),
+): string {
+  const expanded = expandPath(input, e);
+  return isAbsolute(expanded) ? expanded : resolve(dirname(configFile), expanded);
+}
+
+/**
  * Config files to consult, highest precedence first.
  *
  * 1. $MIKROTIK_MCP_CONFIG — one or more explicit paths (path-separator delimited)

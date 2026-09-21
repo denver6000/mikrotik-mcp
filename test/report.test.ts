@@ -8,7 +8,7 @@ describe("--check-config report", () => {
     const s = sandbox({ MTK_PW: "s3cret" });
     const path = s.write("work/.mikrotik-mcp.json", {
       profiles: {
-        core: { host: "10.0.0.1" },
+        core: { host: "10.0.0.1", auth: { type: "agent" } },
         lab: { host: "10.0.0.9", readOnly: false, auth: { type: "password", passwordEnv: "MTK_PW" } },
       },
     });

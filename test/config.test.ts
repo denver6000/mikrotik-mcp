@@ -30,7 +30,7 @@ describe("loading profiles", () => {
   it("applies defaults and records the source file", () => {
     const s = sandbox();
     const path = s.write("work/.mikrotik-mcp.json", {
-      defaults: { username: "admin+ct", timeoutMs: 5000 },
+      defaults: { username: "admin+ct", timeoutMs: 5000, auth: { type: "agent" } },
       profiles: {
         core: { host: "10.0.0.1", tags: ["site-a"], description: "Core router" },
         edge: { host: "10.0.0.2", port: 2222, username: "netops", readOnly: false },
@@ -47,7 +47,7 @@ describe("loading profiles", () => {
     assert.equal(core.username, "admin+ct", "username comes from file defaults");
     assert.equal(core.timeoutMs, 5000);
     assert.equal(core.readOnly, true, "profiles are read-only unless told otherwise");
-    assert.equal(core.auth.type, "agent");
+    assert.equal(core.auth?.type, "agent", "auth is inherited from file defaults");
     assert.equal(core.hostKey.policy, "known-hosts");
     assert.equal(core.source, path);
 
@@ -82,7 +82,9 @@ describe("loading profiles", () => {
   it("reports a bad file without discarding the good ones", () => {
     const s = sandbox();
     s.write("work/.mikrotik-mcp.json", "{ not json");
-    s.write("home/.mikrotik-mcp.json", { profiles: { good: { host: "10.0.0.5" } } });
+    s.write("home/.mikrotik-mcp.json", {
+      profiles: { good: { host: "10.0.0.5", auth: { type: "agent" } } },
+    });
 
     const loaded = loadConfig(s.env);
     assert.equal(loaded.issues.length, 1);
@@ -147,5 +149,28 @@ describe("profile search", () => {
     assert.deepEqual(names("SITE-B"), ["branch-1"]);
     assert.deepEqual(names("uplink"), ["core-1"]);
     assert.deepEqual(names("nothing"), []);
+  });
+});
+
+describe("no implicit auth", () => {
+  it("leaves auth null and reports it when nothing declares one", () => {
+    const s = sandbox();
+    s.write("work/.mikrotik-mcp.json", { profiles: { core: { host: "10.0.0.1" } } });
+
+    const loaded = loadConfig(s.env);
+    assert.equal(loaded.profiles.get("core")?.auth, null, "no silent fallback to the agent");
+    assert.equal(loaded.issues.length, 1);
+    assert.match(loaded.issues[0]!.message, /declares no "auth"/);
+  });
+
+  it("inherits auth from the file's defaults", () => {
+    const s = sandbox();
+    s.write("work/.mikrotik-mcp.json", {
+      defaults: { auth: { type: "key", path: "./keys/router" } },
+      profiles: { core: { host: "10.0.0.1" } },
+    });
+    const loaded = loadConfig(s.env);
+    assert.deepEqual(loaded.issues, []);
+    assert.equal(loaded.profiles.get("core")?.auth?.type, "key");
   });
 });

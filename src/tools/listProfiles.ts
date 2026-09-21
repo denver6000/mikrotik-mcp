@@ -6,12 +6,15 @@ import type { ResolvedProfile } from "../config/schema.ts";
 
 /** A profile as exposed to the model — describes auth without revealing it. */
 function summarise(profile: ResolvedProfile) {
+  const a = profile.auth;
   const auth =
-    profile.auth.type === "key"
-      ? { type: "key" as const, keyPath: profile.auth.path }
-      : profile.auth.type === "password"
-        ? { type: "password" as const, passwordEnv: profile.auth.passwordEnv }
-        : { type: "agent" as const };
+    a === null
+      ? { type: "none" as const }
+      : a.type === "key"
+        ? { type: "key" as const, keyPath: a.path }
+        : a.type === "password"
+          ? { type: "password" as const, passwordEnv: a.passwordEnv }
+          : { type: "agent" as const };
 
   return {
     name: profile.name,
@@ -50,7 +53,7 @@ function render(
       const flags = [
         p.readOnly ? "read-only" : "read-write",
         `host key: ${p.hostKey.policy}`,
-        `auth: ${p.auth.type}`,
+        `auth: ${p.auth?.type ?? "NONE DECLARED"}`,
       ].join(", ");
       lines.push(`- ${p.name} — ${p.username}@${p.host}:${p.port} (${flags})`);
       if (p.description) lines.push(`    ${p.description}`);

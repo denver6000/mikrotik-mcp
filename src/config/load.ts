@@ -6,7 +6,6 @@ import {
   DEFAULT_READ_ONLY,
   DEFAULT_TIMEOUT_MS,
   DEFAULT_USERNAME,
-  type Auth,
   type Config,
   type Defaults,
   type Profile,
@@ -34,8 +33,6 @@ export interface LoadedConfig {
   /** Every path consulted, whether or not it exists. */
   searched: string[];
 }
-
-const DEFAULT_AUTH: Auth = { type: "agent" };
 
 function readIfPresent(path: string): string | undefined {
   try {
@@ -68,7 +65,7 @@ function resolveProfile(
     host: profile.host,
     port: profile.port ?? defaults?.port ?? DEFAULT_PORT,
     username: profile.username ?? defaults?.username ?? DEFAULT_USERNAME,
-    auth: profile.auth ?? defaults?.auth ?? DEFAULT_AUTH,
+    auth: profile.auth ?? defaults?.auth ?? null,
     hostKey: {
       ...hostKey,
       policy: hostKey.policy ?? (hostKey.fingerprintSha256 ? "pinned" : "known-hosts"),
@@ -131,7 +128,14 @@ export function loadConfig(e: LookupEnvironment = currentEnvironment()): LoadedC
     for (const [name, profile] of Object.entries(config.profiles)) {
       // First file to define a name wins; later files are lower precedence.
       if (profiles.has(name)) continue;
-      profiles.set(name, resolveProfile(name, profile, config.defaults, path));
+      const resolved = resolveProfile(name, profile, config.defaults, path);
+      if (resolved.auth === null) {
+        issues.push({
+          path,
+          message: `profile '${name}' declares no "auth". Add one to the profile or to "defaults" — there is no implicit fallback, so that the config does not depend on the machine it runs on.`,
+        });
+      }
+      profiles.set(name, resolved);
     }
   }
 

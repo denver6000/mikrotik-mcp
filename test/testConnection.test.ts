@@ -66,7 +66,7 @@ describe("--test <profile>", () => {
   it("connects, runs the probe and reports the router's answer", async () => {
     const result = await testConnection("core", configured().env);
     assert.equal(result.ok, true);
-    assert.match(result.text, /Connecting to 'core' \(admin@127\.0\.0\.1:\d+\) as password/);
+    assert.match(result.text, /Connecting to 'core' \(admin@127\.0\.0\.1:\d+\) using password/);
     assert.match(result.text, /host key\s+SHA256:/);
     assert.match(result.text, /exit code\s+0/);
     assert.match(result.text, /name: MikroTik-core/);

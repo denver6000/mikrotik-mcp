@@ -1,6 +1,8 @@
 import { existsSync } from "node:fs";
 import { loadConfig } from "./load.ts";
 import { currentEnvironment, type LookupEnvironment } from "./paths.ts";
+import { inspectKeyFile } from "../ssh/keyFile.ts";
+import { knownHostsPaths } from "../ssh/exec.ts";
 
 export interface ConfigReport {
   text: string;
@@ -35,16 +37,26 @@ export function describeConfig(e: LookupEnvironment = currentEnvironment()): Con
     for (const p of loaded.profiles.values()) {
       lines.push(`  ${p.name}`);
       lines.push(`    ssh       ${p.username}@${p.host}:${p.port}`);
-      lines.push(
-        `    auth      ${p.auth.type}${
-          p.auth.type === "password"
-            ? ` (from $${p.auth.passwordEnv}${e.env[p.auth.passwordEnv] ? "" : " — NOT SET"})`
-            : p.auth.type === "key"
-              ? ` (${p.auth.path})`
-              : ""
-        }`,
-      );
-      lines.push(`    host key  ${p.hostKey.policy}`);
+      if (p.auth === null) {
+        lines.push(`    auth      NONE DECLARED — add "auth" to the profile or to "defaults"`);
+      } else if (p.auth.type === "password") {
+        const set = e.env[p.auth.passwordEnv] ? "" : " — NOT SET";
+        lines.push(`    auth      password (from $${p.auth.passwordEnv}${set})`);
+      } else if (p.auth.type === "agent") {
+        lines.push(`    auth      agent (depends on the environment the server is launched from)`);
+      } else {
+        const key = inspectKeyFile(p, e);
+        lines.push(`    auth      key  ${key?.path ?? p.auth.path}`);
+        if (key?.problem) lines.push(`              PROBLEM: ${key.problem}`);
+        else if (key?.keyType) lines.push(`              ${key.keyType}, ${key.fingerprint}`);
+        if (key?.permissionWarning) lines.push(`              WARNING: ${key.permissionWarning}`);
+      }
+
+      if (p.hostKey.policy === "known-hosts") {
+        lines.push(`    host key  known-hosts: ${knownHostsPaths(p, e).join(", ")}`);
+      } else {
+        lines.push(`    host key  ${p.hostKey.policy}`);
+      }
       lines.push(`    writes    ${p.readOnly ? "refused (readOnly)" : "ALLOWED"}`);
       lines.push(`    from      ${p.source}`);
     }
@@ -60,6 +72,10 @@ export function describeConfig(e: LookupEnvironment = currentEnvironment()): Con
 
   return {
     text: lines.join("\n") + "\n",
-    ok: loaded.issues.length === 0 && loaded.profiles.size > 0,
+    ok:
+      loaded.issues.length === 0 &&
+      loaded.profiles.size > 0 &&
+      // An unusable key is as much a failure as an unparseable config file.
+      ![...loaded.profiles.values()].some((p) => inspectKeyFile(p, e)?.problem),
   };
 }

@@ -38,7 +38,7 @@
               "required": [
                 "type"
               ],
-              "description": "Authenticate with a key held by a running SSH agent."
+              "description": "Authenticate with a key held by a running SSH agent. Opt-in: it ties the profile to the environment the server was launched from, so it is not the default."
             },
             {
               "type": "object",
@@ -50,7 +50,7 @@
                 "path": {
                   "type": "string",
                   "minLength": 1,
-                  "description": "Path to a private key. '~' and $VARS are expanded."
+                  "description": "Path to a private key. '~' and $VARS are expanded; a relative path resolves against the directory holding this config file."
                 },
                 "passphraseEnv": {
                   "description": "Environment variable holding the key passphrase, if encrypted.",
@@ -98,7 +98,7 @@
               ]
             },
             "knownHostsPath": {
-              "description": "known_hosts file to check. Defaults to ~/.ssh/known_hosts.",
+              "description": "known_hosts file to check. Relative paths resolve against this config file's directory. Defaults to a 'known_hosts' beside the config, then ~/.ssh/known_hosts.",
               "type": "string"
             },
             "fingerprintSha256": {
@@ -349,7 +349,7 @@
                 "required": [
                   "type"
                 ],
-                "description": "Authenticate with a key held by a running SSH agent."
+                "description": "Authenticate with a key held by a running SSH agent. Opt-in: it ties the profile to the environment the server was launched from, so it is not the default."
               },
               {
                 "type": "object",
@@ -361,7 +361,7 @@
                   "path": {
                     "type": "string",
                     "minLength": 1,
-                    "description": "Path to a private key. '~' and $VARS are expanded."
+                    "description": "Path to a private key. '~' and $VARS are expanded; a relative path resolves against the directory holding this config file."
                   },
                   "passphraseEnv": {
                     "description": "Environment variable holding the key passphrase, if encrypted.",
@@ -409,7 +409,7 @@
                 ]
               },
               "knownHostsPath": {
-                "description": "known_hosts file to check. Defaults to ~/.ssh/known_hosts.",
+                "description": "known_hosts file to check. Relative paths resolve against this config file's directory. Defaults to a 'known_hosts' beside the config, then ~/.ssh/known_hosts.",
                 "type": "string"
               },
               "fingerprintSha256": {

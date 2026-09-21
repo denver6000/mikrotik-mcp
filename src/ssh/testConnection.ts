@@ -29,7 +29,7 @@ export async function testConnection(
   }
 
   const target = `${profile.username}@${profile.host}:${profile.port}`;
-  const lines = [`Connecting to '${profile.name}' (${target}) as ${profile.auth.type}...`];
+  const lines = [`Connecting to '${profile.name}' (${target}) using ${profile.auth?.type ?? "no declared auth"}...`];
 
   try {
     const result = await execCommand(profile, PROBE_COMMAND, e);

@@ -2,7 +2,13 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Client, type ConnectConfig } from "ssh2";
 import type { ResolvedProfile } from "../config/schema.ts";
-import { currentEnvironment, expandPath, type LookupEnvironment } from "../config/paths.ts";
+import {
+  currentEnvironment,
+  expandPath,
+  resolveUserPath,
+  type LookupEnvironment,
+} from "../config/paths.ts";
+import { KNOWN_HOSTS_FILENAME } from "../config/schema.ts";
 import { checkKnownHosts, loadKnownHosts, sha256Fingerprint } from "./knownHosts.ts";
 
 export class SshError extends Error {
@@ -42,9 +48,16 @@ function requireEnv(name: string, e: LookupEnvironment, purpose: string): string
 }
 
 function authConfig(profile: ResolvedProfile, e: LookupEnvironment): ConnectConfig {
-  switch (profile.auth.type) {
+  const auth = profile.auth;
+  if (!auth) {
+    throw new SshError(
+      `Profile '${profile.name}' declares no "auth". Add one to the profile or to "defaults" in ${profile.source}.`,
+    );
+  }
+
+  switch (auth.type) {
     case "agent": {
-      const agent = profile.auth.socket ? expandPath(profile.auth.socket, e) : defaultAgentSocket(e);
+      const agent = auth.socket ? expandPath(auth.socket, e) : defaultAgentSocket(e);
       if (!agent) {
         throw new SshError(
           `Profile '${profile.name}' uses SSH agent auth but no agent is available (SSH_AUTH_SOCK is unset).`,
@@ -53,14 +66,14 @@ function authConfig(profile: ResolvedProfile, e: LookupEnvironment): ConnectConf
       return { agent };
     }
     case "key": {
-      const path = expandPath(profile.auth.path, e);
+      const path = resolveUserPath(auth.path, profile.source, e);
       let privateKey: Buffer;
       try {
         privateKey = readFileSync(path);
       } catch (error) {
         throw new SshError(`Cannot read private key '${path}': ${(error as Error).message}`, error);
       }
-      const passphraseEnv = profile.auth.passphraseEnv;
+      const passphraseEnv = auth.passphraseEnv;
       return {
         privateKey,
         ...(passphraseEnv ? { passphrase: requireEnv(passphraseEnv, e, "key passphrase") } : {}),
@@ -71,11 +84,28 @@ function authConfig(profile: ResolvedProfile, e: LookupEnvironment): ConnectConf
       // plain password auth. Enable both and answer the prompts with the same
       // secret; see the 'keyboard-interactive' handler in execCommand.
       return {
-        password: requireEnv(profile.auth.passwordEnv, e, "password"),
+        password: requireEnv(auth.passwordEnv, e, "password"),
         tryKeyboard: true,
       };
     }
   }
+}
+
+/**
+ * known_hosts files to consult, in order.
+ *
+ * A file beside the config comes first, so a config directory can carry its
+ * own trust store and stay portable. The user's personal known_hosts is only a
+ * fallback, and never consulted when the profile names a path explicitly.
+ */
+export function knownHostsPaths(profile: ResolvedProfile, e: LookupEnvironment): string[] {
+  if (profile.hostKey.knownHostsPath) {
+    return [resolveUserPath(profile.hostKey.knownHostsPath, profile.source, e)];
+  }
+  return [
+    resolveUserPath(KNOWN_HOSTS_FILENAME, profile.source, e),
+    join(e.home, ".ssh", KNOWN_HOSTS_FILENAME),
+  ];
 }
 
 interface HostKeyOutcome {
@@ -190,7 +220,7 @@ export function execCommand(
       else stderr += text;
     };
 
-    if (profile.auth.type === "password") {
+    if (profile.auth?.type === "password") {
       const password = e.env[profile.auth.passwordEnv] ?? "";
       conn.on("keyboard-interactive", (_name, _instructions, _lang, prompts, submit) => {
         submit(prompts.map(() => password));

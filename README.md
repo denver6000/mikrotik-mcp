@@ -4,6 +4,8 @@ A [Model Context Protocol](https://modelcontextprotocol.io) server that runs Rou
 
 Node + TypeScript, no runtime toolchain of its own, and **stateless**: every tool call re-reads the config and opens and closes its own SSH connection. Nothing is cached, pooled or carried between calls.
 
+It is also **self-contained**. A profile declares everything it needs, relative paths resolve against the config file, and nothing is inherited from the machine it happens to run on — no ssh-agent, no `~/.ssh/config`, no ambient environment. Copy the config directory to a server or a container and it behaves identically.
+
 It speaks JSON-RPC over stdio, so it drops into any MCP harness: Claude Code, Codex, opencode, Cursor, Zed, and anything else that can spawn a command.
 
 > **Status:** the config, policy and SSH layers are covered by tests, including real SSH handshakes against a local test server. It has **not yet been run against physical MikroTik hardware** — run `mikrotik-mcp --test <profile>` against your own router first. Please report anything RouterOS does differently.
@@ -57,13 +59,18 @@ Start from [`config.example.json`](config.example.json). For a first router, put
     "core": {
       "host": "10.0.0.1",
       "username": "mcp-readonly+ct",
+      "auth": { "type": "key", "path": "./keys/mikrotik" },
       "description": "Core router"
     }
   }
 }
 ```
 
-That is a complete config. Everything else has a default: port 22, SSH-agent auth, `known_hosts` verification, read-only, 20 s timeout. The `+ct` suffix on the username tells RouterOS to drop colour codes and paging, which keeps the output readable.
+`./keys/mikrotik` resolves against **the config file's own directory**, not the working directory — so a folder holding the config and its keys can be moved anywhere and still work.
+
+Everything else defaults: port 22, `known_hosts` verification, read-only, 20 s timeout. The `+ct` suffix tells RouterOS to drop colour codes and paging.
+
+`auth` has no default and must be declared. That is deliberate: guessing at an agent or a conventionally-named key would make the config depend on the machine it runs on, which is exactly what this server avoids.
 
 ### 3. Trust the host key
 
@@ -166,8 +173,9 @@ Adding `$schema` gives you completion and validation in any editor that speaks J
 | `host` | — | Hostname or IP. Required. |
 | `port` | `22` | SSH port. |
 | `username` | `"admin"` | RouterOS user. Append `+ct` (`"admin+ct"`) to turn off colour and paging in RouterOS output. |
-| `auth` | `{ "type": "agent" }` | See [Authentication](#authentication). |
+| `auth` | — | **Required** (on the profile or in `defaults`). See [Authentication](#authentication). |
 | `hostKey` | `{ "policy": "known-hosts" }` | See [Host key verification](#host-key-verification). |
+| | | Relative paths in `auth.path` and `hostKey.knownHostsPath` resolve against the config file's directory. |
 | `readOnly` | `true` | Refuse commands that are not recognised as read-only. |
 | `timeoutMs` | `20000` | Connect + command timeout. |
 | `algorithms` | — | SSH algorithm overrides for older routers. See below. |
@@ -196,17 +204,40 @@ Files are re-read on every tool call, so edits take effect without restarting th
 
 ### Authentication
 
-Secrets never go in the config file. A profile names the *environment variable* holding the secret and the value is read at connect time, so config files stay safe to commit and share.
+Every profile declares an `auth` block. There is no implicit fallback.
 
 ```jsonc
-{ "type": "agent" }                                          // key from a running SSH agent (default)
-{ "type": "agent", "socket": "/run/user/1000/ssh-agent" }    // explicit agent socket
-{ "type": "key", "path": "~/.ssh/id_mikrotik" }              // private key file
-{ "type": "key", "path": "~/.ssh/id_mikrotik", "passphraseEnv": "MTK_KEY_PASS" }
+{ "type": "key", "path": "./keys/mikrotik" }                     // recommended
+{ "type": "key", "path": "./keys/mikrotik", "passphraseEnv": "MTK_KEY_PASS" }
 { "type": "password", "passwordEnv": "MIKROTIK_LAB_PASSWORD" }
+{ "type": "agent" }                                              // opt-in; see the caveat below
+{ "type": "agent", "socket": "/run/user/1000/ssh-agent" }
 ```
 
-`~` and `$VARS` are expanded in paths. On Windows, agent auth defaults to the OpenSSH named pipe when `SSH_AUTH_SOCK` is unset. Password auth also answers keyboard-interactive prompts with the same secret, since RouterOS may offer that instead of plain password auth.
+Secrets never go in the config file. A profile names the *environment variable* holding a password or passphrase, and the value is read at connect time — so config files stay safe to commit and share.
+
+Paths expand `~` and `$VARS`; anything still relative resolves against the config file's directory.
+
+#### Key formats
+
+ssh2 does not accept every key file OpenSSH can. Verified against ssh2 1.17:
+
+| Format | Works |
+| ------ | ----- |
+| Anything `ssh-keygen` produces — ed25519, RSA, ECDSA, encrypted or not | **yes** |
+| RSA PKCS#1 PEM (`BEGIN RSA PRIVATE KEY`), encrypted or not | yes |
+| EC SEC1 PEM (`BEGIN EC PRIVATE KEY`) | yes |
+| **PKCS#8 PEM** (`BEGIN PRIVATE KEY`) — any key type, including ed25519 | **no** |
+
+In practice: generate keys with `ssh-keygen -t ed25519` and you will never hit this. If you have a PKCS#8 key, `--check-config` names the problem and prints the conversion command rather than failing at connect time with "Unsupported key format".
+
+#### Encrypted keys and the agent
+
+Without an agent, an encrypted key's passphrase has to come from an environment variable — which runs into the subprocess problem below. So a self-contained setup in practice means **a dedicated, unencrypted key file**.
+
+That is the standard automation answer, and it is safe here only because the blast radius is bounded elsewhere: the key belongs to a RouterOS user in a read-only group, it is used for nothing else, and it sits with `chmod 600`. On POSIX systems `--check-config` warns if the file is readable by group or others.
+
+Agent auth remains supported for anyone who prefers it, but it is opt-in and not the default. It ties the profile to the environment the server was launched from: `SSH_AUTH_SOCK` is not always inherited by a subprocess spawned from a GUI application, and there is no agent at all in a typical container.
 
 #### Getting a secret to the server
 
@@ -259,11 +290,13 @@ Note the trade-off: this moves the password out of the router config and into th
 On by default. A router whose key is unknown is refused, and the error prints the fingerprint so you can verify it and then trust it.
 
 ```jsonc
-{ "policy": "known-hosts" }                                       // default; ~/.ssh/known_hosts
-{ "policy": "known-hosts", "knownHostsPath": "~/.ssh/routers" }
-{ "policy": "pinned", "fingerprintSha256": "SHA256:abc..." }      // pin one key in the config
+{ "policy": "pinned", "fingerprintSha256": "SHA256:abc..." }      // self-contained; preferred
+{ "policy": "known-hosts" }                                       // default
+{ "policy": "known-hosts", "knownHostsPath": "./known_hosts" }
 { "policy": "insecure-ignore" }                                   // accept anything — lab use only
 ```
+
+Under the default `known-hosts` policy, a `known_hosts` file **beside the config** is consulted first, then `~/.ssh/known_hosts` as a fallback. Naming `knownHostsPath` explicitly uses that file only. For a config that must be portable, either ship a `known_hosts` next to it or pin the fingerprint — the personal-file fallback is a convenience for a workstation, not something to depend on. `--check-config` prints exactly which files will be consulted.
 
 Setting `fingerprintSha256` without a `policy` implies `pinned`. Hashed `known_hosts` entries, wildcards, `[host]:port` entries and negated patterns are all handled. A host that is known but presents a *different* key is a hard failure, never a prompt.
 
@@ -299,6 +332,9 @@ Profiles are `readOnly: true` unless you say otherwise. Commands are classified 
 | `HOST KEY CHANGED` | The router presented a different key than last time. Do not bypass this until you know why. |
 | `Environment variable … is not set` | The client did not pass it to the subprocess — see [Getting a secret to the server](#getting-a-secret-to-the-server). |
 | `Refused: profile … is read-only` | Intended. Set `readOnly: false` on that profile if writes are wanted. |
+| `declares no "auth"` | Add an `auth` block to the profile or to `defaults`; there is no implicit default. |
+| `unsupported key format` | PKCS#8 PEM. Convert it, or regenerate with `ssh-keygen -t ed25519`. |
+| `encrypted, but no "passphraseEnv"` | Either set `passphraseEnv`, or use an unencrypted dedicated key. |
 | `All configured authentication methods failed` | Wrong user, wrong key, or the RouterOS group lacks the `ssh` policy. |
 | Handshake fails before any login prompt | Algorithm mismatch with an older router — see [Older routers: legacy crypto](#older-routers-legacy-crypto). |
 | A command fails but `exit code` is 0 | RouterOS often reports errors in its output rather than through the exit status, so read the text, not just the status. |
@@ -364,6 +400,7 @@ src/
     exec.ts            one connection, one command, then close
     knownHosts.ts      known_hosts parsing and host key verification
     policy.ts          read-only command classification
+    keyFile.ts         offline key inspection: format, fingerprint, permissions
     testConnection.ts  the --test <profile> probe
   tools/
     listProfiles.ts    mikrotik_list_profiles

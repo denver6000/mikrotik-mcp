@@ -4,14 +4,18 @@
   "defaults": {
     "username": "mcp-readonly+ct",
     "timeoutMs": 20000,
-    "auth": { "type": "agent" }
+    "auth": { "type": "key", "path": "./keys/mikrotik" }
   },
 
   "profiles": {
     "core": {
       "host": "10.0.0.1",
       "description": "Core router, main uplink",
-      "tags": ["core", "site-a"]
+      "tags": ["core", "site-a"],
+      "hostKey": {
+        "policy": "pinned",
+        "fingerprintSha256": "SHA256:REPLACE_WITH_THE_REAL_FINGERPRINT"
+      }
     },
 
     "branch-a": {
@@ -19,7 +23,7 @@
       "port": 2222,
       "description": "Branch office CRS",
       "tags": ["branch", "site-b"],
-      "auth": { "type": "key", "path": "~/.ssh/id_mikrotik" },
+      "auth": { "type": "key", "path": "./keys/branch-a" },
       "hostKey": {
         "policy": "pinned",
         "fingerprintSha256": "SHA256:REPLACE_WITH_THE_REAL_FINGERPRINT"
@@ -28,10 +32,11 @@
 
     "lab": {
       "host": "10.20.0.1",
-      "description": "Lab box — writes allowed",
+      "description": "Lab box — writes allowed, host key unchecked",
       "tags": ["lab"],
       "username": "admin+ct",
       "auth": { "type": "password", "passwordEnv": "MIKROTIK_LAB_PASSWORD" },
+      "hostKey": { "policy": "insecure-ignore" },
       "readOnly": false
     }
   }

@@ -18,14 +18,18 @@ export const AuthSchema = z.discriminatedUnion("type", [
           "Override the SSH agent socket. Defaults to $SSH_AUTH_SOCK, or the OpenSSH named pipe on Windows.",
         ),
     })
-    .describe("Authenticate with a key held by a running SSH agent."),
+    .describe(
+      "Authenticate with a key held by a running SSH agent. Opt-in: it ties the profile to the environment the server was launched from, so it is not the default.",
+    ),
   z
     .object({
       type: z.literal("key"),
       path: z
         .string()
         .min(1)
-        .describe("Path to a private key. '~' and $VARS are expanded."),
+        .describe(
+          "Path to a private key. '~' and $VARS are expanded; a relative path resolves against the directory holding this config file.",
+        ),
       passphraseEnv: z
         .string()
         .min(1)
@@ -57,7 +61,9 @@ export const HostKeySchema = z
     knownHostsPath: z
       .string()
       .optional()
-      .describe("known_hosts file to check. Defaults to ~/.ssh/known_hosts."),
+      .describe(
+        "known_hosts file to check. Relative paths resolve against this config file's directory. Defaults to a 'known_hosts' beside the config, then ~/.ssh/known_hosts.",
+      ),
     fingerprintSha256: z
       .string()
       .optional()
@@ -163,7 +169,12 @@ export interface ResolvedProfile {
   host: string;
   port: number;
   username: string;
-  auth: Auth;
+  /**
+   * null when neither the profile nor the file's defaults declared one. There
+   * is deliberately no implicit fallback: guessing would reintroduce a
+   * dependency on the machine the server happens to run on.
+   */
+  auth: Auth | null;
   hostKey: Required<Pick<HostKey, "policy">> & HostKey;
   readOnly: boolean;
   timeoutMs: number;
@@ -176,5 +187,6 @@ export interface ResolvedProfile {
 
 export const DEFAULT_PORT = 22;
 export const DEFAULT_USERNAME = "admin";
+export const KNOWN_HOSTS_FILENAME = "known_hosts";
 export const DEFAULT_TIMEOUT_MS = 20_000;
 export const DEFAULT_READ_ONLY = true;

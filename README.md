@@ -464,12 +464,39 @@ Relative imports use explicit `.ts` extensions so Node can run the sources as-is
 
 ## Release
 
-`version` lives in both `package.json` and `SERVER_VERSION` in `src/server.ts`; bump both.
+The npm package is `@denver6000/mikrotik-mcp`. It is scoped because the unscoped `mikrotik-mcp` is taken by an unrelated project; the installed command is still `mikrotik-mcp`.
+
+`version` lives in both `package.json` and `SERVER_VERSION` in `src/server.ts`; bump both. A test fails if they disagree, and the release workflow fails if the git tag disagrees with either.
+
+### First publish (manual)
+
+npm trusted publishing is configured per package on npmjs.com, which means the package has to exist first. So the first release goes out from a workstation:
 
 ```bash
-npm test && npm run build
-npm publish          # prepublishOnly rebuilds dist/
+npm login
+npm whoami          # must print denver6000 — the scope has to match
+npm publish --otp=123456
 ```
+
+The `--otp` flag carries a code from your authenticator. Without it, an account with 2FA enabled gets `E403 ... Two-factor authentication or granular access token with bypass 2fa enabled is required`.
+
+### Then switch CI on (once)
+
+On npmjs.com, open the package → **Settings** → **Trusted publisher**, and add a GitHub Actions publisher:
+
+| Field | Value |
+| ----- | ----- |
+| Repository | `denver6000/mikrotik-mcp` |
+| Workflow filename | `release.yml` |
+
+After that, every later release is a tag push, with no npm token stored anywhere:
+
+```bash
+npm version patch       # or minor / major — commits and tags
+git push --follow-tags
+```
+
+[`.github/workflows/release.yml`](.github/workflows/release.yml) then runs typecheck, tests and build, checks the tag against `package.json`, and publishes over OIDC. Provenance is attached automatically, so the package page links back to the exact commit and workflow run that built it.
 
 Only `dist/`, `docs/`, `schema/`, `README.md` and `LICENSE` are published.
 

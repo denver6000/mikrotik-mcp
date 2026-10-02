@@ -53,4 +53,14 @@ jobs:
       - name: Check the build output is present
         run: test -f dist/index.js && test -d docs
 
-      - run: npm publish
+      # Auth works two ways, so the same workflow covers both phases:
+      #   - First release: NPM_TOKEN is set as a repository secret. Trusted
+      #     publishing cannot be used yet, because it is configured on an
+      #     existing package's settings page and the package does not exist.
+      #   - Afterwards: delete the secret and configure the trusted publisher.
+      #     NODE_AUTH_TOKEN is then empty and npm authenticates over OIDC.
+      # --provenance is explicit so the token path gets provenance too; it is
+      # automatic on the OIDC path and harmless to pass.
+      - run: npm publish --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

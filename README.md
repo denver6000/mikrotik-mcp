@@ -468,9 +468,23 @@ The npm package is `@denver6000/mikrotik-mcp`. It is scoped because the unscoped
 
 `version` lives in both `package.json` and `SERVER_VERSION` in `src/server.ts`; bump both. A test fails if they disagree, and the release workflow fails if the git tag disagrees with either.
 
-### First publish (manual)
+### First publish
 
-npm trusted publishing is configured per package on npmjs.com, which means the package has to exist first. So the first release goes out from a workstation:
+Trusted publishing is configured on an existing package's settings page, so it cannot do the very first release — the package has to exist first. Two ways to get over that line.
+
+**From CI (easier if your npm 2FA is a passkey or security key).** CI has no passkey to tap, so a token with 2FA bypass is the way through:
+
+1. npmjs.com → profile picture → **Access Tokens** → **Generate New Token** → **Granular Access Token**. Scope it to `@denver6000`, permission **Read and write**, tick **Bypass two-factor authentication**, short expiry.
+2. Store it as a repository secret — the value goes straight to GitHub, never into a file:
+   ```bash
+   gh secret set NPM_TOKEN --repo denver6000/mikrotik-mcp
+   ```
+3. Tag the release, which also fills in the repo's Releases section:
+   ```bash
+   gh release create v0.1.0 --title "v0.1.0" --generate-notes
+   ```
+
+**From your machine.** Works if your second factor can produce a 6-digit code:
 
 ```bash
 npm login
@@ -478,7 +492,7 @@ npm whoami          # must print denver6000 — the scope has to match
 npm publish --otp=123456
 ```
 
-The `--otp` flag carries a code from your authenticator. Without it, an account with 2FA enabled gets `E403 ... Two-factor authentication or granular access token with bypass 2fa enabled is required`.
+If `npm profile get` reports a security key rather than an authenticator app, there is no code to type and this path will not work — use the CI route above.
 
 ### Then switch CI on (once)
 
@@ -488,6 +502,12 @@ On npmjs.com, open the package → **Settings** → **Trusted publisher**, and a
 | ----- | ----- |
 | Repository | `denver6000/mikrotik-mcp` |
 | Workflow filename | `release.yml` |
+
+Then delete the `NPM_TOKEN` secret, if you created one — the workflow falls back to OIDC automatically once the secret is gone:
+
+```bash
+gh secret delete NPM_TOKEN --repo denver6000/mikrotik-mcp
+```
 
 After that, every later release is a tag push, with no npm token stored anywhere:
 

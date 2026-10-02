@@ -53,6 +53,23 @@ jobs:
       - name: Check the build output is present
         run: test -f dist/index.js && test -d docs
 
+      # A tag can be pushed for a version that is already on the registry —
+      # notably the first release, which was published from a workstation
+      # before this workflow could exist. Re-publishing it is an error, not a
+      # no-op, so check first and skip rather than fail a release that has
+      # nothing left to do.
+      - name: Check whether this version is already published
+        id: published
+        run: |
+          name="$(node -p 'require("./package.json").name')"
+          version="$(node -p 'require("./package.json").version')"
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "already=true" >> "$GITHUB_OUTPUT"
+            echo "$name@$version is already on the registry; skipping publish."
+          else
+            echo "already=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # Authentication is OIDC trusted publishing — there is deliberately no
       # NPM_TOKEN secret. npm discourages tokens with 2FA bypass for CI, and
       # with a trusted publisher configured none is needed: the runner proves
@@ -62,4 +79,5 @@ jobs:
       # Trusted publishing cannot perform a package's FIRST publish, because a
       # trusted publisher is configured on a package that already exists. That
       # one release is done from a workstation; see the README.
-      - run: npm publish --provenance
+      - if: steps.published.outputs.already == 'false'
+        run: npm publish --provenance
